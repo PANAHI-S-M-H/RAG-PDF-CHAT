@@ -4,4 +4,4 @@ langchain-community
 pymupdf
 faiss-cpu
 python-dotenv
-huggingface-hub
+fastembed
