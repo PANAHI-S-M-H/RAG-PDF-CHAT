@@ -28,7 +28,7 @@ with st.sidebar:
     uploaded_file = st.file_uploader("Upload your PDF here", type="pdf")
     process_button = st.button("Process Document", use_container_width=True)
     st.divider()
-    st.markdown("Developed by SMHP")
+    st.markdown("Developed By SMHP")
 
 def process_pdf(file):
     file_path = "temp_upload.pdf"
