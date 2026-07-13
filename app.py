@@ -5,7 +5,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
+from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
@@ -17,7 +17,7 @@ st.divider()
 
 
 load_dotenv()
-Vector_db_dir = "data/chroma_db"
+Vector_db_dir = "faiss_index"
 
 with st.sidebar:
     st.header("Document Upload")
@@ -43,7 +43,7 @@ def process_pdf(file):
 
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-    Chroma.from_documents(documents=chunks, embedding=embeddings, persist_directory=Vector_db_dir)
+    FAISS.from_documents(documents=chunks, embedding=embeddings, persist_directory=Vector_db_dir)
     return True
 
 
@@ -59,7 +59,7 @@ elif process_button and uploaded_file is None:
 def get_rag_chain():
     llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash")
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    vectorstore = Chroma(persist_directory=Vector_db_dir, embedding_function=embeddings)
+    vectorstore = FAISS(persist_directory=Vector_db_dir, embedding_function=embeddings)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
     template = """

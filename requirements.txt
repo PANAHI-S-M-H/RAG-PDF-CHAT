@@ -5,6 +5,6 @@ langchain-google-genai
 langchain-huggingface
 langchain-community
 pymupdf
-chromadb
+faiss-cpu
 python-dotenvgit
 sentence-transformers
