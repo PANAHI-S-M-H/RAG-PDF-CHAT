@@ -15,55 +15,48 @@ st.title("Dynamic PDF AI Assistant")
 st.caption("Upload, Process, And Chat With Any Document You Like!")
 st.divider()
 
-
 load_dotenv()
-Vector_db_dir = "faiss_index"
+vector_db_dir = "faiss_index"
 
 with st.sidebar:
     st.header("Document Upload")
     st.info("Upload A PDF File For The AI ​​To Read.")
-
     uploaded_file = st.file_uploader("Upload Your PDF Here", type="pdf")
     process_button = st.button("Process Document", use_container_width=True)
     st.divider()
-    st.markdown("Developed By SMHP")
-
+    st.markdown("Developed by SMHP")
 
 def process_pdf(file):
-
-    file_path = os.path.join("data", "temp_upload.pdf")
+    file_path = os.path.join("temp_upload.pdf")
     with open(file_path, "wb") as f:
         f.write(file.getbuffer())
-
+    
     loader = PyMuPDFLoader(file_path)
-    docs = loader.load
+    docs = loader.load()
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = splitter.split_documents(docs)
-
-
+    
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-    FAISS.from_documents(documents=chunks, embedding=embeddings, persist_directory=Vector_db_dir)
+    vectorstore = FAISS.from_documents(documents=chunks, embedding=embeddings)
+    vectorstore.save_local(vector_db_dir)
     return True
-
 
 if process_button and uploaded_file is not None:
     with st.spinner("Reading, Splitting, And Saving To Database..."):
         process_pdf(uploaded_file)
-        st.session_state.messages = []
-        st.sidebar.success("Document Processed Successfully! Ready To Chat.")
+        st.session_state.messages = [] 
+        st.sidebar.success("Document Processed Successfully! Ready to Chat.")
 elif process_button and uploaded_file is None:
     st.sidebar.warning("Please Upload A PDF File First.")
-
 
 def get_rag_chain():
     llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash")
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    vectorstore = FAISS(persist_directory=Vector_db_dir, embedding_function=embeddings)
+    vectorstore = FAISS.load_local(vector_db_dir, embeddings, allow_dangerous_deserialization=True)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
     template = """
-    You Are An Expert Technical Assistant. Use The Following Pieces Of Retrieved Context To Answer The Question.
+    You Are An Expert Technical Assistant. Use The Following Pieces Of Retrieved Context To Answer The Question. 
     If You Don't Know The Answer, Just Say "I Cannot Find The Answer In The Provided Document." DO NOT Make Up An Answer.
 
     Context:
@@ -74,10 +67,10 @@ def get_rag_chain():
     Answer:
     """
     prompt = PromptTemplate.from_template(template)
-
-    def format_docs(docs):
-        return "\n\n" .join(doc.page_content for doc in docs)
     
+    def format_docs(docs):
+        return "\n\n".join(doc.page_content for doc in docs)
+
     return (
         {"context": retriever | format_docs, "question": RunnablePassthrough()}
         | prompt | llm | StrOutputParser()
@@ -86,11 +79,9 @@ def get_rag_chain():
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-
 
 if prompt := st.chat_input("Ask A Question About Your Uploaded Document..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
