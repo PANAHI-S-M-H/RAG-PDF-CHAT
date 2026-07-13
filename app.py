@@ -36,7 +36,7 @@ def process_pdf(file):
     chunks = splitter.split_documents(docs)
     
     
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
     vectorstore = FAISS.from_documents(documents=chunks, embedding=embeddings)
     vectorstore.save_local(vector_db_dir)
     return True
@@ -51,7 +51,7 @@ elif process_button and uploaded_file is None:
 
 def get_rag_chain():
     llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash")
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
     vectorstore = FAISS.load_local(vector_db_dir, embeddings, allow_dangerous_deserialization=True)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
