@@ -1,7 +1,8 @@
 import streamlit as st
 import os
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
@@ -17,6 +18,10 @@ st.divider()
 load_dotenv()
 vector_db_dir = "faiss_index"
 
+
+google_api_key = st.secrets["GOOGLE_API_KEY"]
+hf_token = st.secrets["HF_TOKEN"]
+
 with st.sidebar:
     st.header("Document Upload")
     st.info("Upload A PDF File For The AI To Read.")
@@ -26,7 +31,7 @@ with st.sidebar:
     st.markdown("Developed by SMHP")
 
 def process_pdf(file):
-    file_path = os.path.join("temp_upload.pdf")
+    file_path = "temp_upload.pdf"
     with open(file_path, "wb") as f:
         f.write(file.getbuffer())
     
@@ -36,13 +41,15 @@ def process_pdf(file):
     chunks = splitter.split_documents(docs)
     
     
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
+    embeddings = HuggingFaceInferenceAPIEmbeddings(
+        api_key=hf_token, model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
     vectorstore = FAISS.from_documents(documents=chunks, embedding=embeddings)
     vectorstore.save_local(vector_db_dir)
     return True
 
 if process_button and uploaded_file is not None:
-    with st.spinner("Reading, Splitting, And Saving To Database..."):
+    with st.spinner("Reading , Splitting , And Saving To Database..."):
         process_pdf(uploaded_file)
         st.session_state.messages = [] 
         st.sidebar.success("Document Processed Successfully! Ready To Chat.")
@@ -50,8 +57,14 @@ elif process_button and uploaded_file is None:
     st.sidebar.warning("Please Upload A PDF File First.")
 
 def get_rag_chain():
-    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash")
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
+    
+    if not os.path.exists(vector_db_dir):
+        raise Exception("No File Has Been Processed! Please Upload A PDF File From The Side Menu First And Click The Process Button.")
+
+    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", api_key=google_api_key)
+    embeddings = HuggingFaceInferenceAPIEmbeddings(
+        api_key=hf_token, model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
     vectorstore = FAISS.load_local(vector_db_dir, embeddings, allow_dangerous_deserialization=True)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
@@ -89,7 +102,7 @@ if prompt := st.chat_input("Ask A Question About Your Uploaded Document..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Thinking And Searching..."):
+        with st.spinner("Thinking and Searching..."):
             try:
                 rag_chain = get_rag_chain()
                 response = rag_chain.invoke(prompt)
